@@ -18,8 +18,8 @@ class URLChecker:
         self.processed_count = 0
         self.total_count = 0
         
-    def normalize_url(self, url):
-        """Normalize URL by adding protocol if missing"""
+    def normalise_url(self, url):
+        """Normalise URL by adding protocol if missing"""
         url = url.strip()
         if not url:
             return url
@@ -35,40 +35,14 @@ class URLChecker:
         if not url or not url.strip():
             return False
             
-        normalized_url = self.normalize_url(url)
+        normalised_url = self.normalise_url(url)
         
         try:
-            result = urllib.parse.urlparse(normalized_url)
+            result = urllib.parse.urlparse(normalised_url)
             return all([result.scheme, result.netloc])
         except:
             return False
-    
-    def check_url(self, row_data):
-        """Check individual URL and return result"""
-        row_index, url, full_row = row_data
-        
-        # Check if URL is empty or missing
-        if not url or url.strip() == '':
-            return {
-                'row_index': row_index,
-                'url': url,
-                'status': 'bad',
-                'reason': 'no_url',
-                'http_status': None,
-                'full_row': full_row
-            }
-        
-        # Check if URL is malformed
-        if not self.is_valid_url(url):
-            return {
-                'row_index': row_index,
-                'url': url,
-                'status': 'bad',
-                'reason': 'malformed_url',
-                'http_status': None,
-                'full_row': full_row
-            }
-        
+
     def check_url(self, row_data):
         """Check individual URL and return result"""
         row_index, url, full_row = row_data
@@ -86,9 +60,9 @@ class URLChecker:
             }
         
         # Normalize URL (add protocol if missing)
-        normalized_url = self.normalize_url(url)
+        normalised_url = self.normalise_url(url)
         
-        # Check if URL is malformed (even after normalization)
+        # Check if URL is malformed (even after normalisation)
         if not self.is_valid_url(url):
             return {
                 'row_index': row_index,
@@ -101,7 +75,7 @@ class URLChecker:
         
         try:
             # Make HTTP request with normalized URL
-            req = urllib.request.Request(normalized_url, headers={'User-Agent': 'Mozilla/5.0 (URL Checker)'})
+            req = urllib.request.Request(normalised_url, headers={'User-Agent': 'Mozilla/5.0 (URL Checker)'})
             
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
                 status_code = response.getcode()
@@ -197,7 +171,8 @@ class URLChecker:
     def load_csv_data(self):
         """Load CSV data and extract ALL rows for processing"""
         rows_to_check = []
-        
+        URL_INDEX = 34        
+
         try:
             # First try to detect encoding
             encoding = self.detect_encoding(self.csv_file_path)
@@ -222,17 +197,15 @@ class URLChecker:
                     print(f"Headers (no quotes): {headers}")
                 
                 row_count = 0
+
                 for row_index, row in enumerate(csv_reader, start=1):
                     try:
-                        # Process ALL rows, regardless of content
-                        if len(row) >= 3:
-                            url = row[2].strip()  # Third field (index 2)
-                        else:
-                            # Pad row if it has fewer than 3 columns
-                            while len(row) < 3:
-                                row.append('')
-                            url = ''
-                        
+                        # Ensure row has enough columns
+                        if len(row) <= URL_INDEX:
+                            # Pad missing columns
+                            row += [''] * (URL_INDEX + 1 - len(row))
+
+                        url = row[URL_INDEX].strip()                        
                         # Add ALL rows to processing queue
                         rows_to_check.append((row_index, url, row))
                         row_count += 1
@@ -380,18 +353,17 @@ class URLChecker:
 
 def main():
     # Configuration
-    CSV_FILE = 'results.csv'  # Change this to your CSV file path
-    MAX_WORKERS = 50  # Adjust based on your system and network capacity
+    CSV_FILE = 'results.csv'  # CSV file path - hard coded for now
+    MAX_WORKERS = 50  # Adjust based on system and network capacity
     TIMEOUT = 10  # Timeout in seconds for each request
     
-    # Create and run checker
     checker = URLChecker(CSV_FILE, max_workers=MAX_WORKERS, timeout=TIMEOUT)
     checker.process_urls()
     
     # Save results
     checker.save_results('url_check_results.csv')
     
-    # Optional: Save only bad URLs
+    # Save bad URLs
     bad_results = [r for r in checker.results if r['status'] == 'bad']
     if bad_results:
         with open('bad_urls.csv', 'w', newline='', encoding='utf-8') as file:
