@@ -350,7 +350,6 @@ class URLChecker:
         except Exception as e:
             print(f"Error saving results: {e}")
 
-
 def main():
     # Configuration
     CSV_FILE = 'results.csv'  # CSV file path - hard coded for now
