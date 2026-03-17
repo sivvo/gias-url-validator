@@ -162,6 +162,10 @@ class URLChecker:
     
     def load_csv_data(self):
         """Load CSV data and extract ALL rows for processing"""
+
+        # some logic to try and cater for different CSF formats, particularly because the GIAS export
+        # allows for custom fields to be selected, which means the URL column may not always be in 
+        # the same place, and some rows may have missing columns
         rows_to_check = []
         URL_INDEX = 34        
 
