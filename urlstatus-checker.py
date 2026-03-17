@@ -24,10 +24,8 @@ class URLChecker:
         if not url:
             return url
         
-        # If URL doesn't start with http:// or https://, add https://
         if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
-        
+            url = 'https://' + url      
         return url
     
     def is_valid_url(self, url):
@@ -48,7 +46,6 @@ class URLChecker:
         row_index, url, full_row = row_data
         original_url = url  # Keep original for reporting
         
-        # Check if URL is empty or missing
         if not url or url.strip() == '':
             return {
                 'row_index': row_index,
@@ -57,12 +54,8 @@ class URLChecker:
                 'reason': 'no_url',
                 'http_status': None,
                 'full_row': full_row
-            }
-        
-        # Normalize URL (add protocol if missing)
-        normalised_url = self.normalise_url(url)
-        
-        # Check if URL is malformed (even after normalisation)
+            }        
+        normalised_url = self.normalise_url(url)       
         if not self.is_valid_url(url):
             return {
                 'row_index': row_index,
@@ -74,7 +67,6 @@ class URLChecker:
             }
         
         try:
-            # Make HTTP request with normalized URL
             req = urllib.request.Request(normalised_url, headers={'User-Agent': 'Mozilla/5.0 (URL Checker)'})
             
             with urllib.request.urlopen(req, timeout=self.timeout) as response:
@@ -115,7 +107,7 @@ class URLChecker:
                 'full_row': full_row
             }
         except urllib.error.URLError as e:
-            # Handle connection errors (host doesn't exist, etc.)
+            # connection errors - host doesn't exist, etc
             return {
                 'row_index': row_index,
                 'url': original_url,
@@ -165,7 +157,7 @@ class URLChecker:
             except UnicodeDecodeError:
                 continue
         
-        print("Warning: Could not detect encoding, using 'latin-1' as fallback")
+        print(f"Warning: Could not detect encoding, using 'latin-1' as fallback")
         return 'latin-1'  # This can decode any byte sequence
     
     def load_csv_data(self):
@@ -174,12 +166,10 @@ class URLChecker:
         URL_INDEX = 34        
 
         try:
-            # First try to detect encoding
             encoding = self.detect_encoding(self.csv_file_path)
             
-            # If detection failed, try with error handling
             if encoding == 'latin-1':
-                print("Using latin-1 encoding with error handling...")
+                print(f"Using latin-1 encoding with error handling...")
             
             with open(self.csv_file_path, 'r', encoding=encoding, errors='replace') as file:
                 csv_reader = csv.reader(file, quoting=csv.QUOTE_ALL)
@@ -211,8 +201,7 @@ class URLChecker:
                         row_count += 1
                         
                     except Exception as e:
-                        print(f"Warning: Error processing row {row_index}: {e}")
-                        # Still add the row with empty URL
+                        print(f"Warning: Error processing row {row_index}: {e}")                        
                         rows_to_check.append((row_index, '', ['ERROR', 'ERROR', 'ERROR']))
                         row_count += 1
                 
@@ -223,7 +212,7 @@ class URLChecker:
             return []
         except Exception as e:
             print(f"Error reading CSV file: {e}")
-            print("Trying alternative approach...")
+            print(f"Trying alternative approach...")
             
             # Fallback: try reading with different parameters
             try:
@@ -253,13 +242,12 @@ class URLChecker:
         rows_to_check = self.load_csv_data()
         
         if not rows_to_check:
-            print("No rows to process")
+            print(f"No rows to process")
             return
         
         self.total_count = len(rows_to_check)
         print(f"Found {self.total_count} total rows to process")
         
-        # Count how many actually have URLs
         url_count = sum(1 for _, url, _ in rows_to_check if url and url.strip())
         print(f"Rows with URLs: {url_count}")
         print(f"Rows without URLs: {self.total_count - url_count}")
@@ -268,15 +256,12 @@ class URLChecker:
         
         start_time = time.time()
         
-        # Process all rows with thread pool
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:        
             future_to_row = {
                 executor.submit(self.check_url, row_data): row_data 
                 for row_data in rows_to_check
             }
             
-            # Process completed tasks
             for future in as_completed(future_to_row):
                 try:
                     result = future.result()
@@ -310,31 +295,26 @@ class URLChecker:
                 reason_counts[reason] = reason_counts.get(reason, 0) + 1
         
         if reason_counts:
-            print("\nBad entry breakdown:")
+            print(f"\nBad entry breakdown:")
             for reason, count in sorted(reason_counts.items()):
                 print(f"  {reason}: {count}")
                 
-        # Show what 'no_url' means
         if 'no_url' in reason_counts:
             print(f"\nNote: 'no_url' means the row had no URL in the third column ({reason_counts['no_url']} rows)")
     
     def save_results(self, output_file='url_check_results.csv'):
         """Save results to CSV file"""
         if not self.results:
-            print("No results to save")
+            print(f"No results to save")
             return
         
         try:
             with open(output_file, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 
-                # Write header
-                writer.writerow(['row_index', 'url', 'status', 'reason', 'http_status', 'original_row'])
-                
-                # Sort results by row index
-                sorted_results = sorted(self.results, key=lambda x: x['row_index'])
-                
-                # Write results
+                # add the csv header
+                writer.writerow(['row_index', 'url', 'status', 'reason', 'http_status', 'original_row'])                
+                sorted_results = sorted(self.results, key=lambda x: x['row_index'])                
                 for result in sorted_results:
                     writer.writerow([
                         result['row_index'],
@@ -355,23 +335,22 @@ def main():
     CSV_FILE = 'results.csv'  # CSV file path - hard coded for now
     MAX_WORKERS = 50  # Adjust based on system and network capacity
     TIMEOUT = 10  # Timeout in seconds for each request
+    RESULTS_OUTPUT = 'url_check_results.csv'  # Output file for results
+    BAD_URL_OUTPUT = 'bad_urls.csv' # Output file for bad URLs
     
     checker = URLChecker(CSV_FILE, max_workers=MAX_WORKERS, timeout=TIMEOUT)
     checker.process_urls()
     
-    # Save results
-    checker.save_results('url_check_results.csv')
+    checker.save_results(RESULTS_OUTPUT)
     
-    # Save bad URLs
     bad_results = [r for r in checker.results if r['status'] == 'bad']
     if bad_results:
-        with open('bad_urls.csv', 'w', newline='', encoding='utf-8') as file:
+        with open(BAD_URL_OUTPUT, 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(['row_index', 'url', 'reason', 'http_status'])
             for result in sorted(bad_results, key=lambda x: x['row_index']):
                 writer.writerow([result['row_index'], result['url'], result['reason'], result['http_status']])
-        print("Bad URLs saved to: bad_urls.csv")
-
+        print(f"Bad URLs saved to: {BAD_URL_OUTPUT}")
 
 if __name__ == "__main__":
     main()
